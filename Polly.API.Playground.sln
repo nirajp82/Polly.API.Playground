@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31205.134
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Polly.API.Playground", "Polly.API.Playground.csproj", "{F3685FCB-82A9-4A13-B81E-E2024C0A9ACF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F3685FCB-82A9-4A13-B81E-E2024C0A9ACF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F3685FCB-82A9-4A13-B81E-E2024C0A9ACF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F3685FCB-82A9-4A13-B81E-E2024C0A9ACF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F3685FCB-82A9-4A13-B81E-E2024C0A9ACF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D327C766-8CC3-4600-A3C8-A00D5979ED4A}
+	EndGlobalSection
+EndGlobal
