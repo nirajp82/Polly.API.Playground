@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Polly.Retry;
 using Polly;
+using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace PollyBefore.Controllers
 {
@@ -20,13 +22,28 @@ namespace PollyBefore.Controllers
 
 
         #region Constructor
-        public CatalogController()
+        public CatalogController(ILogger<CatalogController> logger)
         {
             ////Basic Retry Policy
-            _httpAsyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-                            .RetryAsync(3);
+            //_httpAsyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
+            //                .RetryAsync(3);
 
             ////Wait and Retry Policy
+            //_httpAsyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
+            //                  .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(100 * retryAttempt));
+
+            //Retry Policy with onRetryAsync Delegate
+            _httpAsyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
+                            .RetryAsync(3, onRetryAsync: (httpResponseMessage, retryCount) =>
+                            {
+                                if (httpResponseMessage.Result.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                                    logger.LogError("Unauthorized");
+                                else if (httpResponseMessage.Result.StatusCode == System.Net.HttpStatusCode.NotFound)
+                                    logger.LogError("NotFound");
+                                else if (httpResponseMessage.Result.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+                                    logger.LogError("InternalServerError");
+                                return Task.CompletedTask;
+                            });
         }
         #endregion
 
@@ -42,6 +59,7 @@ namespace PollyBefore.Controllers
             if (response.IsSuccessStatusCode)
             {
                 var itemsInStock = JsonSerializer.Deserialize<int>(await response.Content.ReadAsStringAsync());
+                Response.Headers.Add("X-Debug-Message", response.Headers.GetValues("X-Debug-Message").FirstOrDefault());
                 return Ok(itemsInStock);
             }
 

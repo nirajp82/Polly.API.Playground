@@ -19,11 +19,12 @@ namespace PollyBefore.Controllers
 
             if (_requestCount % 3 == 0) // only one of out 3 requests will succeed
             {
+                HttpContext.Response.Headers.Add("X-Debug-Message", _message);
                 _message = string.Empty;
                 _requestCount = 0;
                 return Ok(15);
             }
-            _message += $" Attempt: {_requestCount} \r\n";
+            _message += $" Attempt {_requestCount}";
             return StatusCode((int)HttpStatusCode.InternalServerError, $"{_message}");
         }
     }
