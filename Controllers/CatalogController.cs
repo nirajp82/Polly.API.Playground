@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using Polly.Timeout;
 using System.Net.Http.Formatting;
 using Polly.Fallback;
+using System.Threading;
 
 namespace PollyBefore.Controllers
 {
@@ -62,7 +63,7 @@ namespace PollyBefore.Controllers
                    .Or<TimeoutRejectedException>()
                    .FallbackAsync(new HttpResponseMessage(HttpStatusCode.OK)
                    {
-                       Content = new ObjectContent(typeof(int), 0, new JsonMediaTypeFormatter())
+                       Content = new ObjectContent(typeof(int), int.MaxValue, new JsonMediaTypeFormatter())
                    });
 
             _asyncTimeoutPolicy = Policy.TimeoutAsync(2);
@@ -74,7 +75,15 @@ namespace PollyBefore.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
-            HttpResponseMessage response = await RetryPolicy(id);
+            //HttpResponseMessage response = await RetryPolicy(id);
+            HttpResponseMessage response = await _asyncFallbackPolicy.ExecuteAsync(() =>
+                _asyncRetryPolicy.ExecuteAsync(() =>
+                    _asyncTimeoutPolicy.ExecuteAsync(
+                            async token =>
+                            {
+                                var httpClient = GetHttpClient();
+                                return await httpClient.GetAsync($"{_REQUEST_END_POINT}{id}", token);
+                            }, CancellationToken.None)));
 
             if (response.IsSuccessStatusCode)
             {
@@ -83,7 +92,7 @@ namespace PollyBefore.Controllers
             }
 
             return StatusCode((int)response.StatusCode, response.Content.ReadAsStringAsync());
-        } 
+        }
         #endregion
 
 
@@ -141,7 +150,7 @@ namespace PollyBefore.Controllers
             httpClient.DefaultRequestHeaders.Accept.Clear();
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             return httpClient;
-        } 
+        }
         #endregion
     }
 }

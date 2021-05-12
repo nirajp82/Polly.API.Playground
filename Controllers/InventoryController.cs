@@ -30,7 +30,7 @@ namespace PollyBefore.Controllers
                 _requestCount = 0;
                 return Ok(15);
             }
-            await Task.Delay(20);// simulate some data processing by delaying
+            await Task.Delay(200);// simulate some data processing by delaying
             return StatusCode((int)HttpStatusCode.InternalServerError, $"Please try again. Attempt {_requestCount}");
         }
 
