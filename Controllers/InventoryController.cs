@@ -10,28 +10,27 @@ namespace PollyBefore.Controllers
     public class InventoryController : Controller
     {
         #region Members
-        readonly ILogger<CatalogController> _logger;
         static int _requestCount = 0;
         #endregion
 
         [HttpGet("{id}")]
         public async Task<IActionResult> Get(int id)
         {
-            return await AuthExample();
-            //return await RetryExample();
+            //return await AuthExample();
+           return await RetryExample();
         }
 
         #region Private Methods
         private async Task<IActionResult> RetryExample()
         {
-            await Task.Delay(20);// simulate some data processing by delaying
             _requestCount++;
 
-            if (_requestCount % 3 == 0) // only one of out 3 requests will succeed
+            if (_requestCount % 5 == 0) // only one of out 5 requests will succeed
             {
                 _requestCount = 0;
                 return Ok(15);
             }
+            await Task.Delay(20);// simulate some data processing by delaying
             return StatusCode((int)HttpStatusCode.InternalServerError, $"Please try again. Attempt {_requestCount}");
         }
 
