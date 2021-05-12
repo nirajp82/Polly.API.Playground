@@ -27,8 +27,7 @@ namespace PollyBefore.Controllers
 
             if (_requestCount % 5 == 0) // only one of out 5 requests will succeed
             {
-                _requestCount = 0;
-                return Ok(15);
+                return Ok(_requestCount);
             }
             await Task.Delay(200);// simulate some data processing by delaying
             return StatusCode((int)HttpStatusCode.InternalServerError, $"Please try again. Attempt {_requestCount}");

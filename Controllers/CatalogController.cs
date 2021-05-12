@@ -15,6 +15,8 @@ using Polly.Timeout;
 using System.Net.Http.Formatting;
 using Polly.Fallback;
 using System.Threading;
+using Polly.API.Playground.Infrastructure;
+using Polly.Registry;
 
 namespace PollyBefore.Controllers
 {
@@ -25,48 +27,16 @@ namespace PollyBefore.Controllers
         #region Members
         const string _BASE_URI = @"http://localhost:57664/api/";
         const string _REQUEST_END_POINT = "inventory/";
-
-        readonly AsyncRetryPolicy<HttpResponseMessage> _asyncRetryPolicy;
-        readonly AsyncFallbackPolicy<HttpResponseMessage> _asyncFallbackPolicy;
-        readonly AsyncTimeoutPolicy _asyncTimeoutPolicy;
         readonly ILogger<CatalogController> _logger;
+        readonly PolicyRegistry _policyRegistry;
         #endregion
 
 
         #region Constructor
-        public CatalogController(ILogger<CatalogController> logger)
+        public CatalogController(ILogger<CatalogController> logger, PolicyRegistry policyRegistry)
         {
-            this._logger = logger;
-
-            ////Basic Retry Policy
-            _asyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-                            .RetryAsync(3);
-
-
-            ////Wait and Retry Policy
-            //_asyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-            //                  .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromMilliseconds(100 * retryAttempt));
-
-
-            ////Retry Policy with onRetryAsync Delegate
-            //_asyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-            //                .RetryAsync(3, onRetryAsync: OnRetry);
-
-
-            ////Retry Policy or HttpRequestException along with onRetryAsync Delegate  
-            //_asyncRetryPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-            //                .Or<HttpRequestException>()
-            //               .RetryAsync(3, onRetryAsync: OnRetry);
-
-            //Fallback Policy
-            _asyncFallbackPolicy = Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-                   .Or<TimeoutRejectedException>()
-                   .FallbackAsync(new HttpResponseMessage(HttpStatusCode.OK)
-                   {
-                       Content = new ObjectContent(typeof(int), int.MaxValue, new JsonMediaTypeFormatter())
-                   });
-
-            _asyncTimeoutPolicy = Policy.TimeoutAsync(2);
+            _logger = logger;
+            _policyRegistry = policyRegistry;
         }
         #endregion
 
@@ -76,11 +46,12 @@ namespace PollyBefore.Controllers
         public async Task<IActionResult> Get(int id)
         {
             //HttpResponseMessage response = await RetryPolicy(id);
-            HttpResponseMessage response = await _asyncFallbackPolicy.ExecuteAsync(() =>
-                _asyncRetryPolicy.ExecuteAsync(() =>
-                    _asyncTimeoutPolicy.ExecuteAsync(
+            HttpResponseMessage response = await GetAsyncHttpPolicy(PollyPolicyRegistry.FallbackWithTimedOutExceptionPolicy).ExecuteAsync(() =>
+                GetAsyncHttpPolicy(PollyPolicyRegistry.BasicRetryPolicy).ExecuteAsync(() =>
+                GetAsyncPolicy(PollyPolicyRegistry.TimeoutPolicy).ExecuteAsync(
                             async token =>
                             {
+                                _logger.LogWarning($"_Retry");
                                 var httpClient = GetHttpClient();
                                 return await httpClient.GetAsync($"{_REQUEST_END_POINT}{id}", token);
                             }, CancellationToken.None)));
@@ -97,12 +68,14 @@ namespace PollyBefore.Controllers
 
 
         #region Private Method
-        private async Task<HttpResponseMessage> RetryPolicy(int id)
+        async Task<HttpResponseMessage> RetryPolicy(int id)
         {
-            return await _asyncRetryPolicy.ExecuteAsync(context =>
+            var asyncRetryPolicy = GetAsyncPolicy(PollyPolicyRegistry.BasicRetryPolicy);
+            return await asyncRetryPolicy.ExecuteAsync(context =>
             {
                 string tokenValue = context["TokenValue"].ToString();
                 _logger.LogInformation($"Calling API: {tokenValue}");
+
                 var httpClient = GetHttpClient(tokenValue);
                 return httpClient.GetAsync($"{_REQUEST_END_POINT}{id}");
             }, new Dictionary<string, object>
@@ -111,26 +84,10 @@ namespace PollyBefore.Controllers
             });
         }
 
-        private Task OnRetry(DelegateResult<HttpResponseMessage> delegateResponse, int retryCnt, Context context)
-        {
-            if (delegateResponse.Exception != null)
-            {
-                _logger.LogError(delegateResponse.Exception.GetBaseException().Message);
-            }
-            else if (delegateResponse.Result.StatusCode == System.Net.HttpStatusCode.NotFound)
-                _logger.LogError("NotFound");
-            else if (delegateResponse.Result.StatusCode == System.Net.HttpStatusCode.InternalServerError)
-                _logger.LogError("InternalServerError");
-            else if (delegateResponse.Result.StatusCode == HttpStatusCode.Unauthorized)
-            {
-                context.Remove("TokenValue");
-                context.Add("TokenValue", "GoodAuthToken");
-                _logger.LogError("Unauthorized");
-            }
-            return Task.CompletedTask;
-        }
+        AsyncPolicy<HttpResponseMessage> GetAsyncHttpPolicy(string key) => _policyRegistry.Get<AsyncPolicy<HttpResponseMessage>>(key);
+        AsyncPolicy GetAsyncPolicy(string key) => _policyRegistry.Get<AsyncPolicy>(key);
 
-        private HttpClient GetHttpClient(string authCookieValue)
+        HttpClient GetHttpClient(string authCookieValue)
         {
             var cookieContainer = new CookieContainer();
             var handler = new HttpClientHandler() { CookieContainer = cookieContainer };
@@ -143,7 +100,7 @@ namespace PollyBefore.Controllers
             return httpClient;
         }
 
-        private HttpClient GetHttpClient()
+        HttpClient GetHttpClient()
         {
             var httpClient = new HttpClient();
             httpClient.BaseAddress = new Uri(_BASE_URI);
