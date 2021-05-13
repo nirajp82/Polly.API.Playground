@@ -28,6 +28,7 @@ namespace Polly.API.Playground
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton<PolicyRegistry>(PollyPolicyRegistry.Build());
+            services.AddSingleton<IPolicyHolder, PolicyHolder>();
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {

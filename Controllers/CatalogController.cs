@@ -17,6 +17,8 @@ using Polly.Fallback;
 using System.Threading;
 using Polly.API.Playground.Infrastructure;
 using Polly.Registry;
+using Polly.Wrap;
+using Polly.API.Playground;
 
 namespace PollyBefore.Controllers
 {
@@ -29,14 +31,16 @@ namespace PollyBefore.Controllers
         const string _REQUEST_END_POINT = "inventory/";
         readonly ILogger<CatalogController> _logger;
         readonly PolicyRegistry _policyRegistry;
+        readonly IPolicyHolder _policyHolder;
         #endregion
 
 
         #region Constructor
-        public CatalogController(ILogger<CatalogController> logger, PolicyRegistry policyRegistry)
+        public CatalogController(ILogger<CatalogController> logger, PolicyRegistry policyRegistry, IPolicyHolder PolicyHolder)
         {
             _logger = logger;
             _policyRegistry = policyRegistry;
+            _policyHolder = PolicyHolder;
         }
         #endregion
 
@@ -46,15 +50,12 @@ namespace PollyBefore.Controllers
         public async Task<IActionResult> Get(int id)
         {
             //HttpResponseMessage response = await RetryPolicy(id);
-            HttpResponseMessage response = await GetAsyncHttpPolicy(PollyPolicyRegistry.FallbackWithTimedOutExceptionPolicy).ExecuteAsync(() =>
-                GetAsyncHttpPolicy(PollyPolicyRegistry.BasicRetryPolicy).ExecuteAsync(() =>
-                GetAsyncPolicy(PollyPolicyRegistry.TimeoutPolicy).ExecuteAsync(
-                            async token =>
-                            {
-                                _logger.LogWarning($"_Retry");
-                                var httpClient = GetHttpClient();
-                                return await httpClient.GetAsync($"{_REQUEST_END_POINT}{id}", token);
-                            }, CancellationToken.None)));
+            //HttpResponseMessage response = await ManuallyCombinedPolicy(id);
+            HttpResponseMessage response = await _policyHolder.TimeoutRetryAndFallbackWrap.ExecuteAsync(async token =>
+            {
+                var httpClient = GetHttpClient();
+                return await httpClient.GetAsync($"{_REQUEST_END_POINT}{id}", token);
+            }, CancellationToken.None);
 
             if (response.IsSuccessStatusCode)
             {
@@ -84,8 +85,21 @@ namespace PollyBefore.Controllers
             });
         }
 
-        AsyncPolicy<HttpResponseMessage> GetAsyncHttpPolicy(string key) => _policyRegistry.Get<AsyncPolicy<HttpResponseMessage>>(key);
-        AsyncPolicy GetAsyncPolicy(string key) => _policyRegistry.Get<AsyncPolicy>(key);
+        IAsyncPolicy<HttpResponseMessage> GetAsyncHttpPolicy(string key) => _policyRegistry.Get<AsyncPolicy<HttpResponseMessage>>(key);
+        IAsyncPolicy GetAsyncPolicy(string key) => _policyRegistry.Get<AsyncPolicy>(key);
+
+
+        async Task<HttpResponseMessage> ManuallyCombinedPolicy(int id)
+        {
+            return await GetAsyncHttpPolicy(PollyPolicyRegistry.FallbackWithTimedOutExceptionPolicy).ExecuteAsync(() =>
+                            GetAsyncHttpPolicy(PollyPolicyRegistry.BasicRetryPolicy).ExecuteAsync(() =>
+                            GetAsyncPolicy(PollyPolicyRegistry.TimeoutPolicy).ExecuteAsync(
+                                        async token =>
+                                        {
+                                            var httpClient = GetHttpClient();
+                                            return await httpClient.GetAsync($"{_REQUEST_END_POINT}{id}", token);
+                                        }, CancellationToken.None)));
+        }
 
         HttpClient GetHttpClient(string authCookieValue)
         {
