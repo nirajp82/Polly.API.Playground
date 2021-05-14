@@ -11,6 +11,8 @@ using Polly.Registry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 namespace Polly.API.Playground
@@ -27,8 +29,21 @@ namespace Polly.API.Playground
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            //Polly Related Configuration
+            services.AddMemoryCache();
+            services.AddSingleton<Polly.Caching.IAsyncCacheProvider, Polly.Caching.Memory.MemoryCacheProvider>();
             services.AddSingleton<PolicyRegistry>(PollyPolicyRegistry.Build());
             services.AddSingleton<IPolicyHolder, PolicyHolder>();
+            //HttpClient
+            HttpClient httpClient = new HttpClient()
+            {
+                BaseAddress = new Uri("http://localhost:57664/api/") // this is the endpoint HttpClient will hit,
+            };
+            httpClient.DefaultRequestHeaders.Accept.Clear();
+            httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            services.AddSingleton<HttpClient>(httpClient);
+
+
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
@@ -39,6 +54,7 @@ namespace Polly.API.Playground
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();

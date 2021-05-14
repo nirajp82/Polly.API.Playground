@@ -24,7 +24,8 @@ namespace PollyBefore.Controllers
 {
     [Produces("application/json")]
     [Route("api/[controller]")]
-    public class CatalogController : Controller
+    [ApiController]
+    public class CatalogController : ControllerBase
     {
         #region Members
         const string _BASE_URI = @"http://localhost:57664/api/";

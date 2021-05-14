@@ -7,7 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace PollyBefore.Controllers
 {
     [Route("api/Inventory")]
-    public class InventoryController : Controller
+    [ApiController]
+    public class InventoryController : ControllerBase
     {
         #region Members
         static int _requestCount = 0;
