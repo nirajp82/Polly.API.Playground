@@ -19,6 +19,8 @@ namespace Polly.API.Playground
 {
     public class Startup
     {
+        private const string BASE_API = "http://localhost:57664/api/";
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -37,11 +39,18 @@ namespace Polly.API.Playground
             //HttpClient
             HttpClient httpClient = new HttpClient()
             {
-                BaseAddress = new Uri("http://localhost:57664/api/") // this is the endpoint HttpClient will hit,
+                BaseAddress = new Uri(BASE_API) // this is the endpoint HttpClient will hit,
             };
             httpClient.DefaultRequestHeaders.Accept.Clear();
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             services.AddSingleton<HttpClient>(httpClient);
+            //HttpClient Factory
+            services.AddHttpClient("OrderService", client =>
+            {
+                client.BaseAddress = new Uri(BASE_API); // this is the endpoint HttpClient will hit,
+                client.DefaultRequestHeaders.Accept.Clear();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            });
 
 
             services.AddControllers();
@@ -54,7 +63,7 @@ namespace Polly.API.Playground
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
