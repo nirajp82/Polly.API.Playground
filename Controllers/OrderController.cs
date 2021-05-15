@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 
 namespace Polly.API.Playground.Controllers
@@ -11,7 +12,10 @@ namespace Polly.API.Playground.Controllers
     [ApiController]
     public class OrderController : ControllerBase
     {
+        #region Members
+        static int _requestCount = 0;
         private static readonly Dictionary<int, string> Orders;
+        #endregion
 
         static OrderController()
         {
@@ -23,16 +27,15 @@ namespace Polly.API.Playground.Controllers
             };
         }
 
-        [HttpGet()]
-        public IActionResult Get()
-        {
-            return Ok(Orders);
-        }
-
         [HttpGet("{id}")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> Get(int id)
         {
-            return Ok(Orders[id]);
+            _requestCount++;
+            if (_requestCount % 4 == 0)
+                return Ok(Orders[id]);
+
+            await Task.Delay(200);// simulate some data processing by delaying
+            return StatusCode((int)HttpStatusCode.InternalServerError, $"Please try again. Attempt {_requestCount}");
         }
     }
 }

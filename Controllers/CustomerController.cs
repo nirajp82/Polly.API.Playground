@@ -37,7 +37,7 @@ namespace Polly.API.Playground.Controllers
             HttpResponseMessage response = await httpClient.GetAsync(endpoint);
             if (response.IsSuccessStatusCode)
             {
-                string orderDetails = await response.Content.ReadAsAsync<string>();
+                string orderDetails = await response.Content.ReadAsStringAsync();//response.Content.ReadAsAsync<string>();
                 return Ok(orderDetails);
             }
             return StatusCode((int)response.StatusCode, response.Content.ReadAsStringAsync());

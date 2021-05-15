@@ -30,14 +30,13 @@ namespace Polly.API.Playground.Infrastructure
 
 
         #region Public Method
-        public static PolicyRegistry Build()
+        public static void Build(IPolicyRegistry<string> registry)
         {
-
-            PolicyRegistry registry = new PolicyRegistry();
+            //PolicyRegistry registry = new PolicyRegistry();
             //Basic Retry Policy
             AsyncRetryPolicy<HttpResponseMessage> basicRetryPolicy =
                             Policy.HandleResult<HttpResponseMessage>(result => !result.IsSuccessStatusCode)
-                                .RetryAsync(3);
+                                .RetryAsync(2);
             registry.Add(BasicRetryPolicy, basicRetryPolicy);
 
 
@@ -76,11 +75,9 @@ namespace Polly.API.Playground.Infrastructure
 
 
             //TimeoutPolicy
-            AsyncTimeoutPolicy timeoutPolicy = Policy.TimeoutAsync(1, onTimeoutAsync: TimeoutAsyncHandler);
+            AsyncTimeoutPolicy<HttpResponseMessage> timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(1, onTimeoutAsync: TimeoutAsyncHandler);
             registry.Add(TimeoutPolicy, timeoutPolicy);
-
-            return registry;
-        }      
+        }
         #endregion
 
         private static Task OnRetry(DelegateResult<HttpResponseMessage> delegateResponse, int retryCnt, Context context)

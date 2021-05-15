@@ -34,7 +34,9 @@ namespace Polly.API.Playground
             //Polly Related Configuration
             services.AddMemoryCache();
             services.AddSingleton<Polly.Caching.IAsyncCacheProvider, Polly.Caching.Memory.MemoryCacheProvider>();
-            services.AddSingleton<PolicyRegistry>(PollyPolicyRegistry.Build());
+            var policyRegistry = services.AddPolicyRegistry();
+            PollyPolicyRegistry.Build(policyRegistry);
+            //Policy Holder , Alternative of Policy Registry
             services.AddSingleton<IPolicyHolder, PolicyHolder>();
             //HttpClient
             HttpClient httpClient = new HttpClient()
@@ -44,14 +46,24 @@ namespace Polly.API.Playground
             httpClient.DefaultRequestHeaders.Accept.Clear();
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             services.AddSingleton<HttpClient>(httpClient);
+
             //HttpClient Factory
+            //services.AddSingleton<IReadOnlyPolicyRegistry>(registry);
+
             services.AddHttpClient("OrderService", client =>
             {
                 client.BaseAddress = new Uri(BASE_API); // this is the endpoint HttpClient will hit,
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            });
-
+            }).AddPolicyHandlerFromRegistry(PollyPolicyRegistry.TimeoutPolicy)
+              .AddPolicyHandlerFromRegistry(PollyPolicyRegistry.FallbackWithTimedOutExceptionPolicy)
+              .AddPolicyHandlerFromRegistry((policyRegistry, httpRequestMessage) =>
+              {
+                  if (httpRequestMessage.Method == HttpMethod.Get)
+                      return policyRegistry.Get<IAsyncPolicy<HttpResponseMessage>>(PollyPolicyRegistry.BasicRetryPolicy);
+                  else
+                      return policyRegistry.Get<IAsyncPolicy<HttpResponseMessage>>(PollyPolicyRegistry.WaitAndRetryPolicy);
+              });
 
             services.AddControllers();
             services.AddSwaggerGen(c =>
