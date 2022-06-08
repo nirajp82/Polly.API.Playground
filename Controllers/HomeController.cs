@@ -68,5 +68,23 @@ namespace Polly.API.Playground.Controllers
 
             return StatusCode((int)response.StatusCode, response.Content.ReadAsStringAsync());
         }
+        
+      public async Task<T> BasicRetryAsync<T>(Func<Task<T>> funcAsync)
+      {
+          var result = await Policy
+                     .Handle<RedisConnectionException>() // Possible RedisConnectionException issue 
+                     .Or<SocketException>() //Possible SocketException issue
+                     .WaitAndRetryAsync(_retryMaxAttempts, i => TimeSpan.FromMilliseconds(_sleepDurationMS),
+                         onRetryAsync: async (exception, sleepDuration, attemptNumber, context) =>
+                         {
+                           await ForceReconnectAsync();
+                         })
+                     .ExecuteAsync(async () =>
+                     {
+                       return await funcAsync();
+                     });
+
+         return result;
+    }
     }
 }
